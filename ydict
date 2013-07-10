@@ -1,0 +1,192 @@
+#!/usr/bin/perl
+
+# ydict, rewritten by Freehaha
+# /*******************************************************************************
+# Copyright (c) 2012 Freehaha
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# 	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# 	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# 	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# 	THE SOFTWARE.
+# 
+# *********************************************************************************/
+
+use strict;
+use Term::ANSIColor qw(:constants);
+use LWP::Simple;
+use HTML::Entities;
+use warnings;
+use utf8;
+binmode STDOUT, ":utf8";
+
+if ($#ARGV == -1) {
+	print "<Yahoo!奇摩字典> ";
+	while (<>) {
+		chomp;
+		if ("$_" eq '') {
+			print "<Yahoo!奇摩字典> ";
+			next;
+		}
+		ydict($_);
+		print "<Yahoo!奇摩字典> ";
+	}
+} else {
+	while ($#ARGV != -1) {
+		ydict(shift);
+	}
+}
+
+sub ydict
+{
+	my $p = shift || die;
+	utf8::decode($p);
+	my $html = get("http://tw.dictionary.yahoo.com/dictionary?p=$p");
+	utf8::decode($html);
+	decode_entities($html);
+	$html =~ s/\r//g;
+	$html =~ s/\n//g;
+
+	print BOLD . YELLOW . "$p 的查詢結果:" . RESET . "\n\n";
+
+	parsehtml($html, $p);
+}
+
+sub parsehtml
+{
+	my $html = shift;
+	my $p = shift;
+	my $pron = "";
+	my $target = "";
+	if($html =~ m/<span class="yschttl">/) {
+		$html = $';
+		($target) = $html =~ m/([^<]*)</;
+	}
+	else {
+		print BOLD.RED."查無此字\n".RESET;
+		if($html =~ m/<div class="dym msg">.*?<i>(\w+)<\/i>/) {
+			print BOLD.YELLOW."你是不是要查" . GREEN . " $1\n".RESET;
+			return;
+		}
+		else {
+			return;
+		}
+	}
+	if($target ne $p) {
+		print RED.BOLD."拼字檢查: $p -> $target\n\n".RESET;
+	}
+	if($html =~ m/<span class="proun_wrapper">/) {
+		$html = $';
+		($pron) = $html =~ m/<span[^>]*>\s*KK<\/span>[^<]*<span[^>]*>[^\[]*\[([^\]]*)\]</;
+		$html = $';
+	}
+	print "KK: [", WHITE.BOLD.$pron.RESET,"]\n" if $pron;
+	return if $html !~ m/<ul class="explanation_wrapper">/m;
+	$html =  $';
+	if($html =~ m/<li class="result_cluster res">/) {
+		$html = $`;
+	}
+
+	while($html =~ m/<li class="explanation_pos_wrapper">/) {
+		my $caption;
+		my $class;
+		my $abbr;
+		my $count = 0;
+		$html = $';
+		if($html =~ m/<span class="pos_abbr">([^<]*)</) {
+			$abbr = $1;
+			$html = $';
+		}
+		else {
+			$abbr = "";
+		}
+		if($html =~ m/<span class="pos_desc">([^<]*)</) {
+			$abbr .= " " . $1;
+			$html = $';
+		}
+		print RED.BOLD.$abbr.RESET, "\n";
+
+		parseDefs($html, $count);
+		$count++;
+		print "\n";
+	}
+	while(my ($extra) = $html =~ m/<ul class="extra_wrapper">(.*?)<\/ul>/) {
+		$html = $';
+		parseExtras($extra);
+	}
+}
+sub parseExtras {
+	my ($html) = @_;
+	while(my ($item) = $html =~ m/<li>(.*?)<\/li>/) {
+		$html = $';
+		# variation
+		if(my ($type) = $item =~ m/<span class="extra_hd" id="variation">([^<]*)<\/span>/) {
+			$item = $';
+			print BOLD.RED.$type.RESET, "\n";
+			while(my ($list) = $item =~ m/<p>(.*?)<\/p>/) {
+				$item = $';
+				my ($name, $words) = $list=~ m/<span>(.*?)<\/span><span>(.*?)<\/span>/;
+				print "\t".CYAN.$name."\n\t".GREEN.$words.RESET."\n\n";
+			}
+		}
+		# synonym
+		if(my ($type) = $item =~ m/<span class="extra_hd" id="synonym">([^<]*)<\/span>/) {
+			$item = $';
+			print BOLD.RED.$type.RESET, "\n";
+			while(my($wordlist) = $item =~ m/<div class="extra_wordlist">(.*)<\/div>/) {
+				$item = $';
+				my ($abbr) = $wordlist =~ m/<p>([^<]*)<\/p>/;
+				$wordlist = $';
+				my ($list) = $wordlist =~ m/<samp>(.*?)<\/samp>/;
+				$list =~ s/<\/?a[^>]*>//g;
+				print "\t".CYAN.$abbr."\n\t".GREEN.$list.RESET."\n\n";
+			}
+		}
+	}
+}
+sub parseDefs
+{
+	my ($html, $count) = @_;
+	my $item;
+	my $interp;
+	my @examples;
+	my ($lists) = $html =~ m/<ol class="explanation_ol">(.*?)<\/ol>/;
+	$html = $';
+	$count = 1;
+	while(($item) = $lists =~ m/<li\s*>(.*?)<\/li>/m) {
+		$lists = $';
+		($interp) = $item =~ m/<p class="explanation">([^<]*)<\/p>/; 
+		@examples = ();
+		while($item =~ m/<p class="sample">(.*?)<\/p>/g) {
+			(my $example = $1) =~ s/\\//g;
+			my ($example_eng) = $example =~ m/<samp class="example_sentence">(.*?)<\/samp>/;
+			my ($example_cht) = $example =~ m/<samp>(.*?)<\/samp>/;
+			$example_eng =~ s/<b>([^<]*)<\/b>/BOLD.$1.RESET.CYAN/ge;
+			$example_eng = RESET.CYAN.$example_eng.RESET;
+			push @examples, [$example_eng, $example_cht]
+		}
+		print "    $count. $interp";
+		if(@examples) {
+			foreach my $example (@examples) {
+				print "\n        ", $example->[0];
+				if($example->[1]) {
+					print "\n        ", GREEN.$example->[1].RESET;
+				}
+			}
+		}
+		print "\n";
+		$count++;
+	}
+}
