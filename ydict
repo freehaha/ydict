@@ -48,7 +48,7 @@ sub parsehtml
 	my $target = "";
 	if($html =~ m/<div class="summary">/) {
 		$html = $';
-		($target) = $html =~ m/<a href=[^>]*>([^<]*)</;
+		($target) = $html =~ m/<h2>([^<]*)</;
 	}
 	else {
 		print BOLD.RED."查無此字\n".RESET;
@@ -125,9 +125,9 @@ sub parseDefs
 		@examples = ();
 		while($item =~ m/<p class="sample">(.*?)<\/p>/g) {
 			my $example = $1;
-			my ($example_eng) = $example =~ m/(.*>)/;
+			my ($example_eng) = $example =~ m/(.*>\.?)/;
 			my ($example_cht) = $';
-			$example_eng =~ s/<em>([^<]*)<\/em>/BOLD.$1.RESET.CYAN/ge;
+			$example_eng =~ s/<b>([^<]*)<\/b>/BOLD.$1.RESET.CYAN/ge;
 			$example_eng =~ s/<[^>]*>//g;
 			$example_eng =~ s/^\s*//;
 			$example_cht =~ s/^\s*//;
