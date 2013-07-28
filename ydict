@@ -2,7 +2,7 @@
 
 use strict;
 use Term::ANSIColor qw(:constants);
-use LWP::Simple;
+use LWP::UserAgent;
 use HTML::Entities;
 use warnings;
 use utf8;
@@ -29,9 +29,16 @@ sub ydict
 {
 	my $p = shift || die;
 	utf8::decode($p);
-	my $html = get("http://tw.dictionary.yahoo.com/dictionary?p=$p");
+	my $ua = LWP::UserAgent->new(
+		default_headers => HTTP::Headers->new(
+			"User-Agent" => "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:21.0) Gecko/20130331 Firefox/21.0",
+			"Referer" => "http://tw.dictionary.yahoo.com/dictionary"
+		)
+	);
+	$ua->timeout(10);
+	my $resp = $ua->get("http://tw.dictionary.yahoo.com/dictionary?p=$p");
+	my $html = $resp->decoded_content;
 	utf8::decode($html);
-	decode_entities($html);
 	$html =~ s/\r//g;
 	$html =~ s/\n//g;
 
