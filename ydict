@@ -55,6 +55,8 @@ sub parsehtml
 	my $pron = "";
 	my $target = "";
 	my $summary = "";
+	my $disambiguate = "";
+
 	if($html =~ m/<div class="summary">/) {
 		$html = $';
 		($target) = $html =~ m/<h2>([^<]*)</;
@@ -66,6 +68,12 @@ sub parsehtml
 	if($html =~ m/<!-- END: php include\('module\/result-summary\.php'\); -->/) {
 		$summary = $`;
 		$html = $';
+	}
+	if($html =~ m/<!-- BEGIN: disambiguate-wrapper -->/) {
+		$html = $`;
+		$disambiguate = $';
+		$disambiguate =~ m/<!-- END: disambiguate-wrapper -->/;
+		$disambiguate = $`;
 	}
 	if($target ne $p) {
 		print RED.BOLD."拼字檢查: $p -> $target\n\n".RESET;
@@ -106,6 +114,37 @@ sub parsehtml
 		parseExtras($extra);
 	}
 
+	if($disambiguate) {
+		parseDisambuate($disambiguate);
+	}
+
+}
+
+sub parseDisamSummary {
+	my $index = shift;
+	my $summary = shift;
+	my ($target) = $summary =~ m/<h2><a[^<]*>([^<]*)</;
+	print "    ".$index, ". ", $target, " ";
+	if($summary =~ m/<dt>KK<\/dt>[^<]*<dd>\[([^\]]*)\]/) {
+		print "[", WHITE.BOLD.$1.RESET,"] ";
+	}
+	if($summary =~ m/<p class="explanation">([^<]*)<\/p>/) {
+		print $1;
+	}
+	print "\n";
+}
+
+sub parseDisambuate {
+	my $html = shift;
+	return unless $html =~ /\S/;
+	print RED.BOLD."其他解釋\n".RESET;
+	my $count = 1;
+	while($html =~ /<!-- BEGIN: php include\('module\/result-summary\.php'\); -->/g) {
+		my $summary = $';
+		$summary =~ /<!-- END: php include\('module\/result-summary\.php'\); -->/;
+		parseDisamSummary($count, $summary);
+		$count++;
+	}
 }
 
 sub parseExtras {
