@@ -54,6 +54,7 @@ sub parsehtml
 	my $p = shift;
 	my $pron = "";
 	my $target = "";
+	my $summary = "";
 	if($html =~ m/<div class="summary">/) {
 		$html = $';
 		($target) = $html =~ m/<h2>([^<]*)</;
@@ -62,15 +63,16 @@ sub parsehtml
 		print BOLD.RED."查無此字\n".RESET;
 		return;
 	}
+	if($html =~ m/<!-- END: php include\('module\/result-summary\.php'\); -->/) {
+		$summary = $`;
+		$html = $';
+	}
 	if($target ne $p) {
 		print RED.BOLD."拼字檢查: $p -> $target\n\n".RESET;
 	}
-	if($html =~ m/<div class="pronun">/) {
-		$html = $';
-		($pron) = $html =~ m/<dt>KK<\/dt>[^<]*<dd>\[([^\]]*)\]/;
-		$html = $';
+	if($summary =~ m/<dt>KK<\/dt>[^<]*<dd>\[([^\]]*)\]/) {
+		print "KK: [", WHITE.BOLD.$1.RESET,"]\n";
 	}
-	print "KK: [", WHITE.BOLD.$pron.RESET,"]\n" if $pron;
 
 	return if $html !~ m/<ul class="explanations">/m;
 	my $extras = $`;
