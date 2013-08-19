@@ -176,12 +176,14 @@ sub parseDefs
 			my $example = $1;
 			my ($example_eng) = $example =~ m/(.*>(?:[.?;!"']+)?)/;
 			my ($example_cht) = $';
-			$example_eng =~ s/<b>([^<]*)<\/b>/BOLD.$1.RESET.CYAN/ge;
-			$example_eng =~ s/<[^>]*>//g;
-			$example_eng =~ s/^\s*//;
+			if($example_eng) {
+				$example_eng =~ s/<b>([^<]*)<\/b>/BOLD.$1.RESET.CYAN/ge;
+				$example_eng =~ s/<[^>]*>//g;
+				$example_eng =~ s/^\s*//;
+				$example_eng = RESET.CYAN.$example_eng.RESET;
+			}
 			$example_cht =~ s/^\s*//;
-			$example_eng = RESET.CYAN.$example_eng.RESET;
-			push @examples, [$example_eng, $example_cht]
+			push @examples, [$example_eng || "", $example_cht || ""]
 		}
 		print "    $count. $interp";
 		if(@examples) {
