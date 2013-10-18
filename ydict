@@ -174,7 +174,7 @@ sub parseDefs
 		@examples = ();
 		while($item =~ m/<p class="sample">(.*?)<\/p>/g) {
 			my $example = $1;
-			my ($example_eng) = $example =~ m/(.*>(?:[.?;!"']+)?)/;
+			my ($example_eng) = $example =~ m/(.*>(?:[.?;!"' ]+)?)/;
 			my ($example_cht) = $';
 			if($example_eng) {
 				$example_eng =~ s/<b>([^<]*)<\/b>/BOLD.$1.RESET.CYAN/ge;
